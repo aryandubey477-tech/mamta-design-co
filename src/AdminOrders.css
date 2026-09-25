@@ -1,0 +1,264 @@
+.admin-orders-page {
+  min-height: 100vh;
+  padding: 70px 7%;
+  background: #F9F3E5;
+  color: #4B352A;
+  font-family: "DM Sans", sans-serif;
+}
+
+.admin-orders-header {
+  max-width: 1100px;
+  margin: 0 auto 45px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.admin-orders-header p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8A7467;
+}
+
+.admin-orders-header h1 {
+  margin: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 56px;
+  font-weight: 500;
+}
+
+.admin-orders-header span {
+  font-size: 15px;
+  color: #6E5A4D;
+}
+
+.admin-orders-list {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-order-card {
+  background: #FFFDF8;
+  border: 1px solid #E5D4B2;
+  border-radius: 10px;
+  padding: 24px 26px;
+}
+
+.admin-order-main {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 1.3fr 1fr auto;
+  align-items: center;
+  gap: 25px;
+}
+
+.admin-order-main small {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: #9A8578;
+}
+
+.admin-order-main h3 {
+  margin: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 25px;
+  font-weight: 600;
+}
+
+.admin-order-main strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.admin-order-main button {
+  background: #4B352A;
+  color: #FFFDF8;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.admin-order-main button:hover {
+  opacity: 0.9;
+}
+
+.admin-order-date {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #E5D4B2;
+  color: #8A7467;
+  font-size: 13px;
+}
+
+.admin-empty {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #FFFDF8;
+  border: 1px solid #E5D4B2;
+  border-radius: 10px;
+  padding: 50px;
+  text-align: center;
+}
+
+.admin-empty h2 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 34px;
+  margin-bottom: 8px;
+}
+
+.admin-empty p {
+  color: #7A6659;
+}
+
+.admin-order-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(55, 39, 31, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 25px;
+  z-index: 9999;
+}
+
+.admin-order-modal {
+  position: relative;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #FFFDF8;
+  border: 1px solid #E5D4B2;
+  border-radius: 12px;
+  padding: 35px;
+  box-sizing: border-box;
+}
+
+.admin-order-close {
+  position: absolute;
+  top: 15px;
+  right: 18px;
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  color: #4B352A;
+  cursor: pointer;
+}
+
+.admin-modal-label {
+  margin: 0 0 7px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #9A8578;
+}
+
+.admin-order-modal > h2 {
+  margin: 0 0 30px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 38px;
+}
+
+.admin-order-modal section {
+  padding: 20px 0;
+  border-top: 1px solid #E5D4B2;
+}
+
+.admin-order-modal section h3 {
+  margin: 0 0 12px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 25px;
+}
+
+.admin-order-modal section p {
+  margin: 7px 0;
+  color: #6E5A4D;
+}
+
+.admin-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 15px 0;
+  border-top: 1px solid #EEE2D2;
+}
+
+.admin-item:first-child {
+  border-top: none;
+}
+
+.admin-item strong {
+  font-size: 15px;
+}
+
+.admin-item p {
+  margin: 5px 0 0 !important;
+  font-size: 13px;
+}
+
+.admin-order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-order-total span {
+  font-size: 14px;
+  color: #7A6659;
+}
+
+.admin-order-total strong {
+  font-size: 20px;
+}
+
+@media (max-width: 800px) {
+  .admin-orders-page {
+    padding: 45px 20px;
+  }
+
+  .admin-orders-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-orders-header h1 {
+    font-size: 46px;
+  }
+
+  .admin-order-main {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .admin-order-main button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-order-main {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-order-card {
+    padding: 20px;
+  }
+
+  .admin-order-modal {
+    padding: 25px 20px;
+  }
+
+  .admin-item {
+    flex-direction: column;
+  }
+}

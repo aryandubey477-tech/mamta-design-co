@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-
+import "./AdminOrders.css";
 function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
