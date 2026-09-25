@@ -6,167 +6,38 @@ import "./App.css";
 import Checkout from "./Checkout.jsx";
 import OrderConfirmed from "./OrderConfirmed";
 import AdminOrders from "./AdminOrders.jsx";
+import AdminProducts from "./AdminProducts.jsx";
 import Login from "./Login.jsx";
 import MyAccount from "./MyAccount.jsx";
 
-const products = [
-  {
-    id: 1,
-    name: "Rani Mirrorwork Chaniya",
-    category: "Chaniya Choli",
-    collection: "Navratri",
-    price: 12999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
 
-  {
-    id: 2,
-    name: "Rajwadi Wine Chaniya",
-    category: "Chaniya Choli",
-    collection: "Designer",
-    price: 15999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
+const fallbackProducts = [];
 
-  {
-    id: 3,
-    name: "Meera Festive Chaniya",
-    category: "Chaniya Choli",
-    collection: "Festive",
-    price: 9999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
 
-  {
-    id: 4,
-    name: "Rajputana Mirrorwork Chaniya",
-    category: "Chaniya Choli",
-    collection: "Navratri",
-    price: 13999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
 
-  {
-    id: 5,
-    name: "Royal Maroon Chaniya",
-    category: "Chaniya Choli",
-    collection: "Designer",
-    price: 14999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 6,
-    name: "Kutch Embroidery Chaniya",
-    category: "Chaniya Choli",
-    collection: "Traditional",
-    price: 11999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 7,
-    name: "Bandhani Royal Chaniya",
-    category: "Chaniya Choli",
-    collection: "Bandhani",
-    price: 10999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 8,
-    name: "Gulabi Mirrorwork Chaniya",
-    category: "Chaniya Choli",
-    collection: "Festive",
-    price: 12999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 9,
-    name: "Aashvi Designer Chaniya",
-    category: "Chaniya Choli",
-    collection: "Designer",
-    price: 17999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 10,
-    name: "Heritage Gujarati Chaniya",
-    category: "Chaniya Choli",
-    collection: "Traditional",
-    price: 11499,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 11,
-    name: "Noor Embroidered Chaniya",
-    category: "Chaniya Choli",
-    collection: "Festive",
-    price: 15499,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 12,
-    name: "Rajsi Velvet Chaniya",
-    category: "Chaniya Choli",
-    collection: "Designer",
-    price: 18999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 13,
-    name: "Kesar Traditional Chaniya",
-    category: "Chaniya Choli",
-    collection: "Traditional",
-    price: 12499,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 14,
-    name: "Mehfil Premium Chaniya",
-    category: "Chaniya Choli",
-    collection: "Premium",
-    price: 16999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-
-  {
-    id: 15,
-    name: "Maharani Bridal Chaniya",
-    category: "Chaniya Choli",
-    collection: "Bridal",
-    price: 21999,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    image: "/src/assets/hero.png",
-  },
-];
 
 function App() {
 const navigate = useNavigate();
 const location = useLocation();
 
-  
+const [products, setProducts] = useState(fallbackProducts);  
+
   const [activeCategory, setActiveCategory] = useState("All");
+  
+
+useEffect(() => {
+  fetch(`${import.meta.env.VITE_API_URL}/api/products`)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        setProducts(data.products);
+      }
+    })
+    .catch((error) => {
+      console.error("Failed to load products:", error);
+    });
+}, []);
+
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -292,6 +163,10 @@ const location = useLocation();
       cartTotal={cartTotal}
     />
   );
+}
+
+if (location.pathname === "/admin/products") {
+  return <AdminProducts />;
 }
 
 if (location.pathname === "/admin/orders") {

@@ -111,6 +111,206 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model("User", userSchema);
 
 // ===============================
+// PRODUCT SCHEMA
+// ===============================
+
+const productSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    category: {
+      type: String,
+      default: "Chaniya Choli",
+    },
+
+    collection: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    price: {
+      type: Number,
+      required: true,
+    },
+
+    sizes: {
+      type: [String],
+      default: [],
+    },
+
+    image: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const Product = mongoose.model("Product", productSchema);
+
+
+// ===============================
+// PRODUCT API
+// ===============================
+
+// GET ALL PRODUCTS
+app.get("/api/products", async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    console.error("Get products error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch products.",
+    });
+  }
+});
+
+// CREATE PRODUCT
+app.post("/api/products", async (req, res) => {
+  console.log("CREATE PRODUCT REQUEST RECEIVED");
+
+  try {
+    const {
+      name,
+      category,
+      collection,
+      price,
+      sizes,
+      image,
+    } = req.body;
+
+    if (!name || !collection || !price || !image) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide product name, collection, price and image.",
+      });
+    }
+
+    const newProduct = new Product({
+      name,
+      category: category || "Chaniya Choli",
+      collection,
+      price,
+      sizes: sizes || [],
+      image,
+    });
+
+    const savedProduct = await newProduct.save();
+
+    console.log("=================================");
+    console.log("NEW PRODUCT SAVED");
+    console.log("=================================");
+    console.log("Product ID:", savedProduct._id);
+    console.log("Product:", savedProduct.name);
+
+    res.status(201).json({
+      success: true,
+      message: "Product added successfully!",
+      product: savedProduct,
+    });
+  } catch (error) {
+    console.error("Create product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to create product.",
+    });
+  }
+});// ===============================
+// PRODUCT API
+// ===============================
+
+// GET ALL PRODUCTS
+app.get("/api/products", async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    console.error("Get products error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch products.",
+    });
+  }
+});
+
+// CREATE PRODUCT
+app.post("/api/products", async (req, res) => {
+  console.log("CREATE PRODUCT REQUEST RECEIVED");
+
+  try {
+    const {
+      name,
+      category,
+      collection,
+      price,
+      sizes,
+      image,
+    } = req.body;
+
+    if (!name || !collection || !price || !image) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide product name, collection, price and image.",
+      });
+    }
+
+    const newProduct = new Product({
+      name,
+      category: category || "Chaniya Choli",
+      collection,
+      price,
+      sizes: sizes || [],
+      image,
+    });
+
+    const savedProduct = await newProduct.save();
+
+    console.log("=================================");
+    console.log("NEW PRODUCT SAVED");
+    console.log("=================================");
+    console.log("Product ID:", savedProduct._id);
+    console.log("Product:", savedProduct.name);
+
+    res.status(201).json({
+      success: true,
+      message: "Product added successfully!",
+      product: savedProduct,
+    });
+  } catch (error) {
+    console.error("Create product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to create product.",
+    });
+  }
+});
+
+// ===============================
 // HOME ROUTE
 // ===============================
 
