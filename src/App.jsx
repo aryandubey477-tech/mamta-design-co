@@ -7,6 +7,7 @@ import Checkout from "./Checkout.jsx";
 import OrderConfirmed from "./OrderConfirmed";
 import AdminOrders from "./AdminOrders.jsx";
 import AdminProducts from "./AdminProducts.jsx";
+import AdminLogin from "./AdminLogin.jsx";
 import Login from "./Login.jsx";
 import MyAccount from "./MyAccount.jsx";
 
@@ -165,13 +166,31 @@ useEffect(() => {
   );
 }
 
+if (location.pathname === "/admin/login") {
+  return <AdminLogin />;
+}
+
+
+
 if (location.pathname === "/admin/products") {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    return <AdminLogin />;
+  }
+
   return <AdminProducts />;
 }
 
 if (location.pathname === "/admin/orders") {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    return <AdminLogin />;
+  }
+
   return <AdminOrders />;
-}  
+}
 
 if (location.pathname === "/login") {
   return <Login />;

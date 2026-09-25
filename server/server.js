@@ -6,6 +6,40 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+const verifyAdminToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Admin authentication required.",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required.",
+      });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired admin token.",
+    });
+  }
+};
+
 require("dotenv").config({ path: "./server/.env" });
 
 const app = express();
@@ -155,6 +189,87 @@ const productSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", productSchema);
 
+// ===============================
+// ADMIN LOGIN
+// ===============================
+
+app.post("/api/admin/login", (req, res) => {
+  
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter email and password.",
+      });
+    }
+
+    const emailMatch =
+  email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+
+const passwordMatch =
+  password === process.env.ADMIN_PASSWORD;
+
+console.log("ADMIN EMAIL MATCH:", emailMatch);
+console.log("ADMIN PASSWORD MATCH:", passwordMatch);
+
+if (!emailMatch || !passwordMatch) {
+  return res.status(401).json({
+    success: false,
+    message: "Invalid admin email or password.",
+  });
+}
+
+    
+
+    const token = jwt.sign(
+      {
+        role: "admin",
+        email: process.env.ADMIN_EMAIL,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "24h",
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "Admin login successful!",
+      token,
+    });
+  } catch (error) {
+    console.error("Admin login error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to login as admin.",
+    });
+  }
+});
+
+
+// ===============================
+// PROTECT ADMIN ACTIONS
+// ===============================
+
+app.post("/api/products", verifyAdminToken, (req, res, next) => {
+  next();
+});
+
+app.put("/api/products/:id", verifyAdminToken, (req, res, next) => {
+  next();
+});
+
+app.delete("/api/products/:id", verifyAdminToken, (req, res, next) => {
+  next();
+});
+
+app.get("/api/orders", verifyAdminToken, (req, res, next) => {
+  next();
+});
 
 // ===============================
 // PRODUCT API

@@ -6,7 +6,13 @@ function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/orders`)
+  const adminToken = localStorage.getItem("adminToken");
+
+  fetch(`${import.meta.env.VITE_API_URL}/api/orders`, {
+    headers: {
+      Authorization: `Bearer ${adminToken || ""}`,
+    },
+  })
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {

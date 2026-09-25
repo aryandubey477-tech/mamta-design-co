@@ -20,6 +20,11 @@ function AdminProducts() {
 
   const API_URL = import.meta.env.VITE_API_URL;
 
+  const getAdminHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("adminToken") || ""}`,
+});
+
   // ===============================
   // LOAD PRODUCTS
   // ===============================
@@ -125,9 +130,7 @@ function AdminProducts() {
 
       const response = await fetch(`${API_URL}/api/products`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+       headers: getAdminHeaders(),
         body: JSON.stringify({
           name,
           category: "Chaniya Choli",
@@ -219,9 +222,7 @@ function AdminProducts() {
         `${API_URL}/api/products/${editingProduct._id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getAdminHeaders(),
           body: JSON.stringify({
             name,
             category: "Chaniya Choli",
@@ -270,9 +271,10 @@ function AdminProducts() {
 
       const response = await fetch(
         `${API_URL}/api/products/${product._id}`,
-        {
-          method: "DELETE",
-        }
+       {
+  method: "DELETE",
+  headers: getAdminHeaders(),
+}
       );
 
       const data = await response.json();
