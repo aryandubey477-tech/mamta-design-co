@@ -232,7 +232,46 @@ app.post("/api/products", async (req, res) => {
       message: "Unable to create product.",
     });
   }
-});// ===============================
+});
+
+// ===============================
+// DELETE PRODUCT
+// ===============================
+
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedProduct = await Product.findByIdAndDelete(id);
+
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    console.log("PRODUCT DELETED:", deletedProduct.name);
+
+    res.json({
+      success: true,
+      message: "Product deleted successfully!",
+    });
+  } catch (error) {
+    console.error("Delete product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to delete product.",
+    });
+  }
+});
+
+
+
+
+// ===============================
 // PRODUCT API
 // ===============================
 
@@ -309,6 +348,88 @@ app.post("/api/products", async (req, res) => {
     });
   }
 });
+
+// ===============================
+// UPDATE PRODUCT
+// ===============================
+
+app.put("/api/products/:id", async (req, res) => {
+  try {
+    const { name, collection, price, sizes, image } = req.body;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        collection,
+        price,
+        sizes,
+        image,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Product updated successfully!",
+      product: updatedProduct,
+    });
+  } catch (error) {
+    console.error("Update product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to update product.",
+    });
+  }
+});
+
+
+// ===============================
+// DELETE PRODUCT
+// ===============================
+
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(
+      req.params.id
+    );
+
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Product deleted successfully!",
+    });
+  } catch (error) {
+    console.error("Delete product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to delete product.",
+    });
+  }
+});
+
+
+
 
 // ===============================
 // HOME ROUTE

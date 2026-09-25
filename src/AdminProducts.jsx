@@ -3,13 +3,18 @@ import { useEffect, useState } from "react";
 function AdminProducts() {
   const [products, setProducts] = useState([]);
 
+  // Add / Edit form
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [collection, setCollection] = useState("Navratri");
   const [sizes, setSizes] = useState("S, M, L, XL");
   const [imageFile, setImageFile] = useState(null);
-
   const [imagePreview, setImagePreview] = useState("");
+
+  // Edit mode
+  const [editingProduct, setEditingProduct] = useState(null);
+
+  // Status
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -29,6 +34,7 @@ function AdminProducts() {
       }
     } catch (error) {
       console.error("Unable to load products:", error);
+      setMessage("Unable to load products.");
     }
   };
 
@@ -50,10 +56,58 @@ function AdminProducts() {
   };
 
   // ===============================
+  // UPLOAD IMAGE TO CLOUDINARY
+  // ===============================
+
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+    );
+
+    const cloudinaryResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${
+        import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+      }/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const cloudinaryData = await cloudinaryResponse.json();
+
+    if (!cloudinaryResponse.ok) {
+      throw new Error(
+        cloudinaryData.error?.message || "Image upload failed."
+      );
+    }
+
+    return cloudinaryData.secure_url;
+  };
+
+  // ===============================
+  // RESET FORM
+  // ===============================
+
+  const resetForm = () => {
+    setName("");
+    setPrice("");
+    setCollection("Navratri");
+    setSizes("S, M, L, XL");
+    setImageFile(null);
+    setImagePreview("");
+    setEditingProduct(null);
+  };
+
+  // ===============================
   // ADD PRODUCT
   // ===============================
 
-  const handleSubmit = async (event) => {
+  const handleAddProduct = async (event) => {
     event.preventDefault();
 
     setMessage("");
@@ -67,43 +121,9 @@ function AdminProducts() {
       setUploading(true);
       setMessage("Uploading product photo...");
 
-      // ===============================
-      // UPLOAD IMAGE TO CLOUDINARY
-      // ===============================
+      const imageUrl = await uploadImage(imageFile);
 
-      const formData = new FormData();
-
-      formData.append("file", imageFile);
-      formData.append(
-        "upload_preset",
-        import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-      );
-
-      const cloudinaryResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/${
-          import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-        }/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const cloudinaryData = await cloudinaryResponse.json();
-
-      if (!cloudinaryResponse.ok) {
-        throw new Error(
-          cloudinaryData.error?.message || "Image upload failed."
-        );
-      }
-
-      const imageUrl = cloudinaryData.secure_url;
-
-      // ===============================
-      // SAVE PRODUCT TO MONGODB
-      // ===============================
-
-      const productResponse = await fetch(`${API_URL}/api/products`, {
+      const response = await fetch(`${API_URL}/api/products`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -121,33 +141,166 @@ function AdminProducts() {
         }),
       });
 
-      const productData = await productResponse.json();
+      const data = await response.json();
 
-      if (!productResponse.ok) {
-        throw new Error(
-          productData.message || "Unable to save product."
-        );
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to add product.");
       }
 
       setMessage("Product added successfully! ✅");
 
-      // Clear form
-      setName("");
-      setPrice("");
-      setCollection("Navratri");
-      setSizes("S, M, L, XL");
-      setImageFile(null);
-      setImagePreview("");
-
-      // Refresh product list
-      loadProducts();
+      resetForm();
+      await loadProducts();
     } catch (error) {
-      console.error("Product upload error:", error);
+      console.error("Add product error:", error);
       setMessage(error.message || "Something went wrong.");
     } finally {
       setUploading(false);
     }
   };
+
+  // ===============================
+  // START EDITING
+  // ===============================
+
+  const startEditing = (product) => {
+    setEditingProduct(product);
+
+    setName(product.name);
+    setPrice(product.price);
+    setCollection(product.collection);
+    setSizes(
+      product.sizes && product.sizes.length > 0
+        ? product.sizes.join(", ")
+        : "S, M, L, XL"
+    );
+
+    setImageFile(null);
+    setImagePreview(product.image || "");
+
+    setMessage("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  // ===============================
+  // UPDATE PRODUCT
+  // ===============================
+
+  const handleUpdateProduct = async (event) => {
+    event.preventDefault();
+
+    setMessage("");
+
+    if (!editingProduct) return;
+
+    if (!name || !price || !collection) {
+      setMessage("Please fill all required fields.");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setMessage(
+        imageFile ? "Uploading new product photo..." : "Updating product..."
+      );
+
+      let imageUrl = editingProduct.image;
+
+      // Only upload a new image if user selected one
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/products/${editingProduct._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            category: "Chaniya Choli",
+            collection,
+            price: Number(price),
+            sizes: sizes
+              .split(",")
+              .map((size) => size.trim())
+              .filter(Boolean),
+            image: imageUrl,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to update product.");
+      }
+
+      setMessage("Product updated successfully! ✅");
+
+      resetForm();
+      await loadProducts();
+    } catch (error) {
+      console.error("Update product error:", error);
+      setMessage(error.message || "Something went wrong.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ===============================
+  // DELETE PRODUCT
+  // ===============================
+
+  const handleDeleteProduct = async (product) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${product.name}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setMessage("Deleting product...");
+
+      const response = await fetch(
+        `${API_URL}/api/products/${product._id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to delete product.");
+      }
+
+      setMessage("Product deleted successfully! ✅");
+
+      if (editingProduct?._id === product._id) {
+        resetForm();
+      }
+
+      await loadProducts();
+    } catch (error) {
+      console.error("Delete product error:", error);
+      setMessage(error.message || "Unable to delete product.");
+    }
+  };
+
+  // ===============================
+  // FORM SUBMIT
+  // ===============================
+
+  const handleSubmit = editingProduct
+    ? handleUpdateProduct
+    : handleAddProduct;
 
   return (
     <div
@@ -164,6 +317,8 @@ function AdminProducts() {
           margin: "0 auto",
         }}
       >
+        {/* HEADER */}
+
         <h1
           style={{
             fontFamily: "Cormorant Garamond, serif",
@@ -180,11 +335,11 @@ function AdminProducts() {
             color: "#5F4A3D",
           }}
         >
-          Add Chaniya Choli products to your MAMTA DESIGN CO. store.
+          Manage Chaniya Choli products for MAMTA DESIGN CO.
         </p>
 
         {/* ===============================
-            ADD PRODUCT FORM
+            ADD / EDIT FORM
         =============================== */}
 
         <div
@@ -203,7 +358,7 @@ function AdminProducts() {
               marginBottom: "25px",
             }}
           >
-            Add New Product
+            {editingProduct ? "Edit Product" : "Add New Product"}
           </h2>
 
           <form onSubmit={handleSubmit}>
@@ -263,7 +418,11 @@ function AdminProducts() {
 
             {/* IMAGE */}
 
-            <label>Product Photo</label>
+            <label>
+              {editingProduct
+                ? "Product Photo (choose only if you want to change it)"
+                : "Product Photo"}
+            </label>
 
             <input
               type="file"
@@ -279,7 +438,9 @@ function AdminProducts() {
 
             {imagePreview && (
               <div style={{ marginBottom: "25px" }}>
-                <p style={{ marginBottom: "10px" }}>Preview:</p>
+                <p style={{ marginBottom: "10px" }}>
+                  {editingProduct ? "Current / New Photo:" : "Preview:"}
+                </p>
 
                 <img
                   src={imagePreview}
@@ -308,24 +469,38 @@ function AdminProducts() {
               </p>
             )}
 
-            {/* BUTTON */}
+            {/* BUTTONS */}
 
-            <button
-              type="submit"
-              disabled={uploading}
+            <div
               style={{
-                background: "#4B352A",
-                color: "#FFFDF8",
-                border: "none",
-                padding: "15px 30px",
-                borderRadius: "6px",
-                cursor: uploading ? "not-allowed" : "pointer",
-                fontWeight: "600",
-                letterSpacing: "1px",
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
               }}
             >
-              {uploading ? "UPLOADING..." : "ADD PRODUCT"}
-            </button>
+              <button
+                type="submit"
+                disabled={uploading}
+                style={primaryButtonStyle}
+              >
+                {uploading
+                  ? "PLEASE WAIT..."
+                  : editingProduct
+                  ? "SAVE CHANGES"
+                  : "ADD PRODUCT"}
+              </button>
+
+              {editingProduct && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={uploading}
+                  style={secondaryButtonStyle}
+                >
+                  CANCEL EDIT
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -340,7 +515,7 @@ function AdminProducts() {
             marginBottom: "25px",
           }}
         >
-          Products
+          Products ({products.length})
         </h2>
 
         {products.length === 0 ? (
@@ -364,15 +539,36 @@ function AdminProducts() {
                   overflow: "hidden",
                 }}
               >
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  style={{
-                    width: "100%",
-                    height: "280px",
-                    objectFit: "cover",
-                  }}
-                />
+                {/* IMAGE */}
+
+                {product.image ? (
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    style={{
+                      width: "100%",
+                      height: "280px",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "280px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#EDE3D4",
+                      color: "#7A6659",
+                      textAlign: "center",
+                      padding: "20px",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    No product photo yet
+                  </div>
+                )}
 
                 <div style={{ padding: "18px" }}>
                   <h3
@@ -385,16 +581,50 @@ function AdminProducts() {
                     {product.name}
                   </h3>
 
-                  <p>₹{product.price.toLocaleString("en-IN")}</p>
-
                   <p
+                    style={{
+                      fontSize: "18px",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    ₹{Number(product.price).toLocaleString("en-IN")}
+                  </p>
+
+<p
                     style={{
                       fontSize: "14px",
                       opacity: 0.7,
+                      marginBottom: "15px",
                     }}
                   >
                     {product.collection}
                   </p>
+
+                  {/* ACTION BUTTONS */}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => startEditing(product)}
+                      style={editButtonStyle}
+                    >
+                      EDIT
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(product)}
+                      style={deleteButtonStyle}
+                    >
+                      DELETE
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -406,7 +636,7 @@ function AdminProducts() {
 }
 
 // ===============================
-// INPUT STYLE
+// STYLES
 // ===============================
 
 const inputStyle = {
@@ -420,6 +650,54 @@ const inputStyle = {
   color: "#4B352A",
   fontSize: "15px",
   boxSizing: "border-box",
+};
+
+const primaryButtonStyle = {
+  background: "#4B352A",
+  color: "#FFFDF8",
+  border: "none",
+  padding: "15px 30px",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontWeight: "600",
+  letterSpacing: "1px",
+};
+
+const secondaryButtonStyle = {
+  background: "#E5D4B2",
+  color: "#4B352A",
+  border: "none",
+  padding: "15px 30px",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontWeight: "600",
+  letterSpacing: "1px",
+};
+
+const editButtonStyle = {
+  flex: 1,
+  minWidth: "80px",
+  background: "#4B352A",
+  color: "#FFFDF8",
+  border: "none",
+  padding: "10px 12px",
+  borderRadius: "5px",
+  cursor: "pointer",
+  fontWeight: "600",
+  letterSpacing: "0.5px",
+};
+
+const deleteButtonStyle = {
+  flex: 1,
+  minWidth: "80px",
+  background: "#FFFDF8",
+  color: "#4B352A",
+  border: "1px solid #4B352A",
+  padding: "10px 12px",
+  borderRadius: "5px",
+  cursor: "pointer",
+  fontWeight: "600",
+  letterSpacing: "0.5px",
 };
 
 export default AdminProducts;
