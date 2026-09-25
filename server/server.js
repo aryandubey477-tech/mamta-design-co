@@ -6,7 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-require("dotenv").config();
+require("dotenv").config({ path: "./server/.env" });
 
 const app = express();
 const PORT = process.env.PORT || 5000
@@ -436,19 +436,35 @@ app.put("/api/products/:id", async (req, res) => {
   console.log("UPDATE PRODUCT REQUEST RECEIVED");
 
   try {
-    const { name, category, collection, price, sizes, image } = req.body;
+    const {
+      name,
+      category,
+      collection,
+      price,
+      sizes,
+      image,
+    } = req.body;
+
+    const updateData = {
+      name,
+      category: category || "Chaniya Choli",
+      collection,
+      price,
+      sizes: sizes || [],
+    };
+
+    // Only update image if a real image URL was provided
+    if (image) {
+      updateData.image = image;
+    }
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
+      updateData,
       {
-        name,
-        category: category || "Chaniya Choli",
-        collection,
-        price,
-        sizes: sizes || [],
-        image,
-      },
-      { new: true, runValidators: true }
+        new: true,
+        runValidators: true,
+      }
     );
 
     if (!updatedProduct) {
