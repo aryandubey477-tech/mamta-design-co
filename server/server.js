@@ -428,7 +428,51 @@ app.delete("/api/products/:id", async (req, res) => {
   }
 });
 
+// ===============================
+// UPDATE PRODUCT
+// ===============================
 
+app.put("/api/products/:id", async (req, res) => {
+  console.log("UPDATE PRODUCT REQUEST RECEIVED");
+
+  try {
+    const { name, category, collection, price, sizes, image } = req.body;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        category: category || "Chaniya Choli",
+        collection,
+        price,
+        sizes: sizes || [],
+        image,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Product updated successfully!",
+      product: updatedProduct,
+    });
+  } catch (error) {
+    console.error("Update product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to update product.",
+    });
+  }
+});
 
 
 // ===============================
