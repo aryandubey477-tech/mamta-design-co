@@ -2,10 +2,23 @@ const dns = require("dns");
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
+const path = require("path");
+require("dotenv").config({
+  path: path.join(__dirname, ".env"),
+});
+
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
 const jwt = require("jsonwebtoken");
 
 const verifyAdminToken = (req, res, next) => {
@@ -39,8 +52,6 @@ const verifyAdminToken = (req, res, next) => {
     });
   }
 };
-
-require("dotenv").config({ path: "./server/.env" });
 
 const app = express();
 const PORT = process.env.PORT || 5000
@@ -100,6 +111,21 @@ const orderSchema = new mongoose.Schema(
     total: Number,
 
     payment: String,
+
+    razorpayOrderId: {
+      type: String,
+      default: "",
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: "",
+    },
+
+    paymentStatus: {
+      type: String,
+      default: "pending",
+    },
   },
   {
     timestamps: true,
@@ -755,6 +781,158 @@ const user = await User.findOne({
     res.status(500).json({
       success: false,
       message: "Unable to login.",
+    });
+  }
+});
+
+
+// ===============================
+// RAZORPAY CREATE ORDER
+// ===============================
+
+app.post("/api/payment/create-order", async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment amount.",
+      });
+    }
+
+    const options = {
+      amount: Math.round(Number(amount) * 100),
+      currency: "INR",
+      receipt: `mamta_${Date.now()}`,
+    };
+
+    console.log("RAZORPAY KEY LOADED:", !!process.env.RAZORPAY_KEY_ID);
+console.log(
+  "RAZORPAY KEY PREFIX:",
+  process.env.RAZORPAY_KEY_ID
+    ? process.env.RAZORPAY_KEY_ID.substring(0, 12)
+    : "MISSING"
+);
+console.log(
+  "RAZORPAY SECRET LOADED:",
+  !!process.env.RAZORPAY_KEY_SECRET
+);
+
+
+    const order = await razorpay.orders.create(options);
+
+    res.json({
+      success: true,
+      order,
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+  console.error("Razorpay create order error:");
+  console.error(error);
+  console.error("Razorpay error details:", JSON.stringify(error, null, 2));
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to create Razorpay order.",
+    });
+  }
+});
+
+
+
+
+
+
+// ===============================
+// RAZORPAY VERIFY PAYMENT
+// ===============================
+
+app.post("/api/payment/verify", async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      customer,
+      items,
+      total,
+    } = req.body;
+
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing Razorpay payment details.",
+      });
+    }
+
+    const body =
+      razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expectedSignature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_KEY_SECRET
+      )
+      .update(body)
+      .digest("hex");
+
+    const expectedBuffer = Buffer.from(expectedSignature);
+    const receivedBuffer = Buffer.from(razorpay_signature);
+
+    const signatureValid =
+      expectedBuffer.length === receivedBuffer.length &&
+      crypto.timingSafeEqual(
+        expectedBuffer,
+        receivedBuffer
+      );
+
+    if (!signatureValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment signature.",
+      });
+    }
+
+    const newOrder = new Order({
+      customer: {
+        ...customer,
+        payment: "online",
+      },
+      items,
+      total,
+      payment: "online",
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      paymentStatus: "paid",
+    });
+
+    const savedOrder = await newOrder.save();
+
+    console.log("=================================");
+    console.log("RAZORPAY PAYMENT VERIFIED");
+    console.log("=================================");
+    console.log("Order ID:", savedOrder._id);
+    console.log("Razorpay Order:", razorpay_order_id);
+    console.log("Razorpay Payment:", razorpay_payment_id);
+    console.log("Total:", total);
+
+    res.json({
+      success: true,
+      message: "Payment verified and order saved successfully.",
+      orderId: savedOrder._id,
+    });
+  } catch (error) {
+    console.error("Razorpay verification error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to verify payment.",
     });
   }
 });

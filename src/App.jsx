@@ -63,7 +63,7 @@ useEffect(() => {
   city: "",
   state: "",
   pincode: "",
-  payment: "cod",
+  payment: "online",
 });
 
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -83,13 +83,12 @@ useEffect(() => {
 
   const categories = ["All", "Chaniya Choli"];
 
-  const filteredProducts = useMemo(() => {
-    if (activeCategory === "All") return products;
-
-    return products.filter(
-      (product) => product.category === activeCategory
-    );
-  }, [activeCategory]);
+  const filteredProducts =
+  activeCategory === "All"
+    ? products
+    : products.filter(
+        (product) => product.category === activeCategory
+      );
 
   const addToCart = (product) => {
     setCart((currentCart) => {
