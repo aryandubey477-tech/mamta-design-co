@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import "./App.css";
@@ -10,6 +10,7 @@ import AdminProducts from "./AdminProducts.jsx";
 import AdminLogin from "./AdminLogin.jsx";
 import Login from "./Login.jsx";
 import MyAccount from "./MyAccount.jsx";
+import ProductDetail from "./ProductDetail.jsx";
 
 
 const fallbackProducts = [];
@@ -70,15 +71,12 @@ useEffect(() => {
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
-    const openProduct = (product) => {
-    setSelectedProduct(product);
-    setSelectedQuantity(1);
-    setSelectedSize(product.sizes?.[0] || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const openProduct = (product) => {
+    navigate(`/product/${product._id || product.id}`);
   };
 
   const closeProduct = () => {
-    setSelectedProduct(null);
+    navigate("/");
   };
 
   const categories = ["All", "Chaniya Choli"];
@@ -90,16 +88,19 @@ useEffect(() => {
         (product) => product.category === activeCategory
       );
 
-  const addToCart = (product) => {
+  const addToCart = (product, addQty = 1) => {
+    const prodId = product._id || product.id;
+    const qtyToAdd = addQty || product.quantity || 1;
+
     setCart((currentCart) => {
       const existing = currentCart.find(
-        (item) => item.id === product.id
+        (item) => (item.id === prodId || item._id === prodId)
       );
 
       if (existing) {
         return currentCart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+          (item.id === prodId || item._id === prodId)
+            ? { ...item, quantity: item.quantity + qtyToAdd }
             : item
         );
       }
@@ -108,8 +109,9 @@ useEffect(() => {
         ...currentCart,
         {
           ...product,
-          quantity: 1,
-          selectedSize: product.sizes?.[0] || null,
+          id: prodId,
+          _id: prodId,
+          quantity: qtyToAdd,
         },
       ];
     });
@@ -118,28 +120,43 @@ useEffect(() => {
   };
 
   const updateQuantity = (id, selectedSize, change) => {
-  setCart((currentCart) =>
-    currentCart
-      .map((item) => {
-        if (
-          item.id === id &&
-          item.selectedSize === selectedSize
-        ) {
-          return {
-            ...item,
-            quantity: item.quantity + change,
-          };
-        }
+    // Handle both updateQuantity(id, change) and updateQuantity(id, selectedSize, change)
+    let qtyChange = change;
+    let sizeFilter = selectedSize;
 
-        return item;
-      })
-      .filter((item) => item.quantity > 0)
-  );
-};
+    if (typeof selectedSize === "number" && change === undefined) {
+      qtyChange = selectedSize;
+      sizeFilter = null;
+    }
 
-  const removeFromCart = (id) => {
     setCart((currentCart) =>
-      currentCart.filter((item) => item.id !== id)
+      currentCart
+        .map((item) => {
+          const matchId = item.id === id || item._id === id;
+          const matchSize = !sizeFilter || item.selectedSize === sizeFilter;
+
+          if (matchId && matchSize) {
+            return {
+              ...item,
+              quantity: item.quantity + qtyChange,
+            };
+          }
+
+          return item;
+        })
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const removeFromCart = (id, selectedSize = null) => {
+    setCart((currentCart) =>
+      currentCart.filter((item) => {
+        const matchesId = item.id === id || item._id === id;
+        if (selectedSize && item.selectedSize) {
+          return !(matchesId && item.selectedSize === selectedSize);
+        }
+        return !matchesId;
+      })
     );
   };
 
@@ -200,6 +217,18 @@ if (location.pathname === "/account") {
   return <MyAccount />;
 }
 
+if (location.pathname.startsWith("/product/")) {
+  const productId = location.pathname.replace("/product/", "").split("/")[0].split("?")[0];
+  return (
+    <ProductDetail
+      productId={productId}
+      addToCart={addToCart}
+      setCartOpen={setCartOpen}
+      cartCount={cartCount}
+    />
+  );
+}
+
 
 if (location.pathname === "/checkout") {
   return (
@@ -229,7 +258,7 @@ return (
 
   <div className="hero-image">
     <img
-      src="/src/assets/hero.png"
+      src="/hero.png"
       alt="MAMTA DESIGN CO. festive collection"
     />
   </div>
@@ -479,7 +508,7 @@ return (
 
              <article
   className="product-card"
-  key={product.id}
+  key={product._id}
   onClick={() => openProduct(product)}
 >
 
@@ -494,7 +523,16 @@ return (
   className="quick-add"
   onClick={(event) => {
     event.stopPropagation();
-    addToCart(product);
+    const hasOffer =
+      product.offerPrice !== null &&
+      product.offerPrice !== undefined &&
+      product.offerPrice !== "" &&
+      Number(product.offerPrice) > 0 &&
+      Number(product.offerPrice) < Number(product.price);
+    addToCart({
+      ...product,
+      price: hasOffer ? Number(product.offerPrice) : Number(product.price),
+    });
   }}
 >
   ADD TO BAG
@@ -837,7 +875,7 @@ return (
                           {formatPrice(item.price)}
                         </p>
 
-                        {item.selectedSize && (
+                        {item.selectedSize && item.selectedSize !== "Free Size" && (
                           <small>
                             Size: {item.selectedSize}
                           </small>
@@ -848,8 +886,7 @@ return (
   <button
     onClick={() =>
       updateQuantity(
-        item.id,
-        item.selectedSize,
+        item.id || item._id,
         -1
       )
     }
@@ -864,8 +901,7 @@ return (
   <button
     onClick={() =>
       updateQuantity(
-        item.id,
-        item.selectedSize,
+        item.id || item._id,
         1
       )
     }
@@ -877,7 +913,7 @@ return (
                         <button
                           className="remove-item"
                           onClick={() =>
-                            removeFromCart(item.id)
+                            removeFromCart(item.id || item._id)
                           }
                         >
                           REMOVE

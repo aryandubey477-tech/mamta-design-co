@@ -29,7 +29,7 @@ function Login() {
     if (mode === "signup") {
       try {
         const response = await fetch(
-          "`${import.meta.env.VITE_API_URL}/api/users/register`",
+          `${import.meta.env.VITE_API_URL}/api/users/register`,
           {
             method: "POST",
             headers: {
@@ -71,7 +71,7 @@ function Login() {
 
     try {
   const response = await fetch(
-    "fetch(`${import.meta.env.VITE_API_URL}/api/users/login`, {",
+    `${import.meta.env.VITE_API_URL}/api/users/login`,
     {
       method: "POST",
       headers: {

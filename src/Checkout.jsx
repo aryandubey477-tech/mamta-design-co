@@ -124,19 +124,9 @@ if (!orderResponse.ok || !orderData.success) {
   );
 }
 
-    const razorpayOrder = orderData.order;
+      const razorpayOrder = orderData.order;
 
 
-      
-      console.log("RAZORPAY ORDER DATA:", orderData);
-
-      if (!orderResponse.ok || !orderData.success) {
-        throw new Error(
-          orderData.message || "Unable to create payment order."
-        );
-      }
-
-      
 
       const options = {
         key: orderData.keyId,
