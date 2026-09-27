@@ -11,21 +11,28 @@ import AdminLogin from "./AdminLogin.jsx";
 import Login from "./Login.jsx";
 import MyAccount from "./MyAccount.jsx";
 import ProductDetail from "./ProductDetail.jsx";
+import ForgotPassword from "./ForgotPassword.jsx";
+import ResetPassword from "./ResetPassword.jsx";
 
+
+// ==========================================
+// CUSTOMER HELP & SUPPORT CONFIGURATION
+// Configure support contact details for MAMTA DESIGN CO.
+// ==========================================
+export const SUPPORT_CONFIG = {
+  email: "support@mamtadesignco.com", // Business support email
+  whatsappNumber: "", // Set WhatsApp number in international format e.g. "919876543210" (empty = hidden)
+  whatsappMessage: "Hello MAMTA DESIGN CO., I have an inquiry regarding Chaniya Choli.",
+};
 
 const fallbackProducts = [];
-
-
-
 
 function App() {
 const navigate = useNavigate();
 const location = useLocation();
 
 const [products, setProducts] = useState(fallbackProducts);  
-
-  const [activeCategory, setActiveCategory] = useState("All");
-  
+const [activeCategory, setActiveCategory] = useState("All");
 
 useEffect(() => {
   fetch(`${import.meta.env.VITE_API_URL}/api/products`)
@@ -79,14 +86,28 @@ useEffect(() => {
     navigate("/");
   };
 
-  const categories = ["All", "Chaniya Choli"];
+  // Categories & Collection filters
+  const categories = ["All", "Navratri", "Festive"];
 
   const filteredProducts =
-  activeCategory === "All"
-    ? products
-    : products.filter(
-        (product) => product.category === activeCategory
-      );
+    activeCategory === "All"
+      ? products
+      : activeCategory === "Chaniya Choli"
+      ? products.filter((p) => p.category === "Chaniya Choli")
+      : products.filter(
+          (p) =>
+            p.collection?.toLowerCase() === activeCategory.toLowerCase() ||
+            p.category?.toLowerCase() === activeCategory.toLowerCase()
+        );
+
+  const selectCollection = (collectionName) => {
+    setActiveCategory(collectionName);
+    setShowAllProducts(true);
+    const shopSection = document.getElementById("shop");
+    if (shopSection) {
+      shopSection.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   const addToCart = (product, addQty = 1) => {
     const prodId = product._id || product.id;
@@ -212,6 +233,13 @@ if (location.pathname === "/login") {
   return <Login />;
 }
 
+if (location.pathname === "/forgot-password") {
+  return <ForgotPassword />;
+}
+
+if (location.pathname.startsWith("/reset-password/")) {
+  return <ResetPassword />;
+}
 
 if (location.pathname === "/account") {
   return <MyAccount />;
@@ -278,9 +306,25 @@ return (
 
     <nav className="hero-nav-links">
   <a href="#collections">Collections</a>
-  <a href="#shop">Chaniya Choli</a>
+  <a
+    href="#shop"
+    onClick={(e) => {
+      e.preventDefault();
+      selectCollection("All");
+    }}
+  >
+    Chaniya Choli
+  </a>
   <a href="#studio">The Studio</a>
-  <a href="#appointment">Appointments</a>
+  <a
+    href="#support"
+    onClick={(e) => {
+      e.preventDefault();
+      document.getElementById("support")?.scrollIntoView({ behavior: "smooth" });
+    }}
+  >
+    Help &amp; Support
+  </a>
 
   <button
     type="button"
@@ -391,7 +435,11 @@ return (
 
   <div className="collection-grid">
 
-    <article className="collection-card collection-one">
+    <article
+      className="collection-card collection-one"
+      style={{ cursor: "pointer" }}
+      onClick={() => selectCollection("Navratri")}
+    >
 
       <div className="collection-number">
         01
@@ -429,7 +477,11 @@ return (
     </article>
 
 
-    <article className="collection-card collection-three">
+    <article
+      className="collection-card collection-three"
+      style={{ cursor: "pointer" }}
+      onClick={() => selectCollection("Festive")}
+    >
 
       <div className="collection-number">
         03
@@ -509,7 +561,7 @@ return (
              <article
   className="product-card"
   key={product._id}
-  onClick={() => openProduct(product)}
+  onClick={() => navigate(`/product/${product._id}`)}
 >
 
                 <div className="product-image">
@@ -629,10 +681,10 @@ return (
             </p>
 
             <a
-              href="#appointment"
+              href="#collections"
               className="text-link"
             >
-              DISCOVER THE STUDIO →
+              EXPLORE COLLECTIONS →
             </a>
 
           </div>
@@ -640,33 +692,80 @@ return (
         </section>
 
 
-        {/* APPOINTMENT */}
+        {/* CUSTOMER HELP & SUPPORT */}
 
         <section
-          className="appointment"
-          id="appointment"
+          className="support-section"
+          id="support"
         >
 
-          <div>
+          <div className="support-container">
 
             <p className="section-label">
-              PERSONAL EXPERIENCE
+              MAMTA DESIGN CO. · CLIENT SERVICE
             </p>
 
             <h2>
-              Your Chaniya.
+              Help &amp;
               <br />
-              Your Story.
+              Support.
             </h2>
 
-            <p>
-              Book a private appointment for styling,
-              measurements and personalised recommendations.
+            <p className="support-intro">
+              Our studio team is available to assist with inquiries regarding
+              artisanal craft, styling, Free Size fit, custom requests, and order assistance.
             </p>
 
-            <button className="dark-button">
-              BOOK AN APPOINTMENT
-            </button>
+            <div className="support-channels">
+
+              <a
+                href={`mailto:${SUPPORT_CONFIG.email}?subject=Customer%20Support%20Inquiry%20-%20MAMTA%20DESIGN%20CO.`}
+                className="support-channel-card"
+              >
+                <div className="support-card-icon">
+                  ✉
+                </div>
+                <div className="support-card-text">
+                  <span className="support-card-tag">EMAIL US</span>
+                  <strong>{SUPPORT_CONFIG.email}</strong>
+                  <small>Direct studio correspondence</small>
+                </div>
+                <span className="support-card-arrow">→</span>
+              </a>
+
+              {SUPPORT_CONFIG.whatsappNumber ? (
+                <a
+                  href={`https://wa.me/${SUPPORT_CONFIG.whatsappNumber}?text=${encodeURIComponent(
+                    SUPPORT_CONFIG.whatsappMessage
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="support-channel-card"
+                >
+                  <div className="support-card-icon">
+                    💬
+                  </div>
+                  <div className="support-card-text">
+                    <span className="support-card-tag">WHATSAPP US</span>
+                    <strong>Chat with Studio</strong>
+                    <small>Instant styling &amp; order assistance</small>
+                  </div>
+                  <span className="support-card-arrow">→</span>
+                </a>
+              ) : (
+                <div className="support-channel-card support-channel-card-info">
+                  <div className="support-card-icon">
+                    ✦
+                  </div>
+                  <div className="support-card-text">
+                    <span className="support-card-tag">STUDIO CARE</span>
+                    <strong>Handcrafted in Gujarat</strong>
+                    <small>Dedicated artisan support</small>
+                  </div>
+                </div>
+              )}
+
+            </div>
 
           </div>
 
@@ -691,9 +790,25 @@ return (
 
         <div className="footer-links">
           <a href="#collections">Collections</a>
-          <a href="#shop">Shop</a>
+          <a
+            href="#shop"
+            onClick={(e) => {
+              e.preventDefault();
+              selectCollection("All");
+            }}
+          >
+            Shop
+          </a>
           <a href="#studio">The Studio</a>
-          <a href="#appointment">Appointments</a>
+          <a
+            href="#support"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("support")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            Help &amp; Support
+          </a>
         </div>
 
         <div className="footer-bottom">

@@ -190,7 +190,7 @@ a {
   content: "";
   position: absolute;
   inset: 90px 20% 0;
-  background: url("/src/assets/hero.png") center/cover no-repeat;
+  background: url("/hero.png") center/cover no-repeat;
   opacity: .20;
   filter: saturate(.7);
   mask-image: linear-gradient(to bottom, black 0%, transparent 92%);
@@ -284,7 +284,7 @@ a {
 .section-heading h2,
 .story h2,
 .jewellery h2,
-.appointment h2 {
+.support-section h2 {
   font-family: "Cormorant Garamond", serif;
   font-weight: 400;
   font-size: clamp(60px, 7vw, 105px);
@@ -353,7 +353,7 @@ a {
 .collection-one,
 .collection-two,
 .collection-three {
-  background-image: url("/src/assets/hero.png");
+  background-image: url("/hero.png");
 }
 
 .collection-two {
@@ -513,7 +513,7 @@ a {
       rgba(70,30,25,.15),
       rgba(70,30,25,.15)
     ),
-    url("/src/assets/hero.png") center/cover;
+    url("/hero.png") center/cover;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -570,7 +570,7 @@ a {
 
 .story-image {
   min-height: 650px;
-  background: url("/src/assets/hero.png") center/cover;
+  background: url("/hero.png") center/cover;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -607,10 +607,10 @@ a {
 }
 
 
-/* APPOINTMENT */
+/* HELP & SUPPORT */
 
-.appointment {
-  padding: 140px 8vw;
+.support-section {
+  padding: 120px 8vw;
   background: var(--wine);
   color: white;
   text-align: center;
@@ -618,25 +618,101 @@ a {
   justify-content: center;
 }
 
-.appointment .section-label {
+.support-container {
+  max-width: 760px;
+  width: 100%;
+}
+
+.support-section .section-label {
+  color: #d8bfa0;
+  margin-bottom: 20px;
+}
+
+.support-intro {
+  max-width: 520px;
+  margin: 30px auto 40px;
+  line-height: 1.8;
+  opacity: .8;
+  font-size: 14px;
+}
+
+.support-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+  text-align: left;
+}
+
+.support-channel-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 26px;
+  background: rgba(255, 253, 249, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.support-channel-card:hover {
+  background: rgba(255, 253, 249, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  transform: translateY(-3px);
+}
+
+.support-channel-card-info {
+  cursor: default;
+}
+
+.support-channel-card-info:hover {
+  background: rgba(255, 253, 249, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: none;
+}
+
+.support-card-icon {
+  font-size: 26px;
   color: #d8bfa0;
 }
 
-.appointment p:not(.section-label) {
-  max-width: 500px;
-  margin: 35px auto;
-  line-height: 1.8;
-  opacity: .75;
+.support-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
-.appointment .dark-button {
-  border-color: rgba(255,255,255,.7);
-  color: white;
+.support-card-tag {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #d8bfa0;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
-.appointment .dark-button:hover {
-  background: white;
-  color: var(--wine);
+.support-card-text strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--white);
+  word-break: break-all;
+}
+
+.support-card-text small {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+.support-card-arrow {
+  font-size: 18px;
+  color: #d8bfa0;
+  transition: transform 0.2s ease;
+}
+
+.support-channel-card:hover .support-card-arrow {
+  transform: translateX(4px);
 }
 
 
@@ -3209,6 +3285,61 @@ a {
   }
 }
 
+/* Forgot Password link — sits below password field in login mode */
+.login-forgot {
+  text-align: right;
+  margin-top: -10px;
+  margin-bottom: 18px;
+}
+
+.login-forgot button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #7a2335;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.login-forgot button:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+/* Error message */
+.login-error {
+  margin: 0 0 14px;
+  padding: 12px 15px;
+  background: rgba(122, 35, 53, 0.06);
+  border-left: 3px solid #7a2335;
+  color: #7a2335;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Success message */
+.login-success {
+  margin: 0 0 14px;
+  padding: 12px 15px;
+  background: rgba(50, 110, 60, 0.07);
+  border-left: 3px solid #3d7a45;
+  color: #2d5a32;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Informational text used on ForgotPassword & ResetPassword pages */
+.forgot-info-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #6f5a50;
+}
+
 .hero-account-link {
   background: transparent;
   border: none;
@@ -3523,4 +3654,28 @@ a {
 
 .shop-view-all .dark-button:hover {
   transform: translateY(-2px);
+}
+
+
+/* ──────────────────────────────────────────────
+   PRODUCT DETAIL PAGE — mobile responsive
+────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Stack gallery + info vertically on mobile */
+  div[style*="display: flex"][style*="gap: 60px"] {
+    flex-direction: column;
+    gap: 30px;
+    padding: 24px 5%;
+  }
+
+  /* Full-width gallery column */
+  div[style*="flex: 1 1 420px"] {
+    max-width: 100%;
+  }
+
+  /* Thumbnails: allow wrapping */
+  div[style*="display: flex"][style*="gap: 10px"] {
+    flex-wrap: wrap;
+  }
 }

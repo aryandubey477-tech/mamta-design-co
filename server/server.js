@@ -54,7 +54,7 @@ const verifyAdminToken = (req, res, next) => {
 };
 
 const app = express();
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
@@ -99,7 +99,7 @@ const orderSchema = new mongoose.Schema(
 
     items: [
       {
-        id: Number,
+        id: mongoose.Schema.Types.Mixed,
         name: String,
         price: Number,
         quantity: Number,
@@ -198,15 +198,42 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
+    offerPrice: {
+      type: Number,
+      default: null,
+    },
+
+    offerText: {
+      type: String,
+      default: "",
+    },
+
+    description: {
+      type: String,
+      default: "",
+    },
+
+    returnDescription: {
+      type: String,
+      default: "",
+    },
+
     sizes: {
       type: [String],
       default: [],
     },
 
+    // Main/primary image — kept for backward compatibility
     image: {
-  type: String,
-  default: "",
-},
+      type: String,
+      default: "",
+    },
+
+    // 4–5 product gallery images
+    images: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -215,12 +242,12 @@ const productSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", productSchema);
 
+
 // ===============================
 // ADMIN LOGIN
 // ===============================
 
 app.post("/api/admin/login", (req, res) => {
-  
   try {
     const { email, password } = req.body;
 
@@ -232,22 +259,20 @@ app.post("/api/admin/login", (req, res) => {
     }
 
     const emailMatch =
-  email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+      email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
 
-const passwordMatch =
-  password === process.env.ADMIN_PASSWORD;
+    const passwordMatch =
+      password === process.env.ADMIN_PASSWORD;
 
-console.log("ADMIN EMAIL MATCH:", emailMatch);
-console.log("ADMIN PASSWORD MATCH:", passwordMatch);
+    console.log("ADMIN EMAIL MATCH:", emailMatch);
+    console.log("ADMIN PASSWORD MATCH:", passwordMatch);
 
-if (!emailMatch || !passwordMatch) {
-  return res.status(401).json({
-    success: false,
-    message: "Invalid admin email or password.",
-  });
-}
-
-    
+    if (!emailMatch || !passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid admin email or password.",
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -278,26 +303,6 @@ if (!emailMatch || !passwordMatch) {
 
 
 // ===============================
-// PROTECT ADMIN ACTIONS
-// ===============================
-
-app.post("/api/products", verifyAdminToken, (req, res, next) => {
-  next();
-});
-
-app.put("/api/products/:id", verifyAdminToken, (req, res, next) => {
-  next();
-});
-
-app.delete("/api/products/:id", verifyAdminToken, (req, res, next) => {
-  next();
-});
-
-app.get("/api/orders", verifyAdminToken, (req, res, next) => {
-  next();
-});
-
-// ===============================
 // PRODUCT API
 // ===============================
 
@@ -321,123 +326,44 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
-// CREATE PRODUCT
-app.post("/api/products", async (req, res) => {
-  console.log("CREATE PRODUCT REQUEST RECEIVED");
-
-  try {
-    const {
-      name,
-      category,
-      collection,
-      price,
-      sizes,
-      image,
-    } = req.body;
-
-    if (!name || !collection || !price || !image) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide product name, collection, price and image.",
-      });
-    }
-
-    const newProduct = new Product({
-      name,
-      category: category || "Chaniya Choli",
-      collection,
-      price,
-      sizes: sizes || [],
-      image,
-    });
-
-    const savedProduct = await newProduct.save();
-
-    console.log("=================================");
-    console.log("NEW PRODUCT SAVED");
-    console.log("=================================");
-    console.log("Product ID:", savedProduct._id);
-    console.log("Product:", savedProduct.name);
-
-    res.status(201).json({
-      success: true,
-      message: "Product added successfully!",
-      product: savedProduct,
-    });
-  } catch (error) {
-    console.error("Create product error:");
-    console.error(error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to create product.",
-    });
-  }
-});
-
-// ===============================
-// DELETE PRODUCT
-// ===============================
-
-app.delete("/api/products/:id", async (req, res) => {
+// GET SINGLE PRODUCT BY ID
+app.get("/api/products/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deletedProduct = await Product.findByIdAndDelete(id);
-
-    if (!deletedProduct) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(404).json({
         success: false,
         message: "Product not found.",
       });
     }
 
-    console.log("PRODUCT DELETED:", deletedProduct.name);
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
 
     res.json({
       success: true,
-      message: "Product deleted successfully!",
+      product,
     });
   } catch (error) {
-    console.error("Delete product error:");
+    console.error("Get product error:");
     console.error(error.message);
 
     res.status(500).json({
       success: false,
-      message: "Unable to delete product.",
+      message: "Unable to fetch product.",
     });
   }
 });
 
-
-
-
-// ===============================
-// PRODUCT API
-// ===============================
-
-// GET ALL PRODUCTS
-app.get("/api/products", async (req, res) => {
-  try {
-    const products = await Product.find().sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      products,
-    });
-  } catch (error) {
-    console.error("Get products error:");
-    console.error(error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to fetch products.",
-    });
-  }
-});
-
-// CREATE PRODUCT
-app.post("/api/products", async (req, res) => {
+// CREATE PRODUCT (admin only)
+app.post("/api/products", verifyAdminToken, async (req, res) => {
   console.log("CREATE PRODUCT REQUEST RECEIVED");
 
   try {
@@ -446,8 +372,13 @@ app.post("/api/products", async (req, res) => {
       category,
       collection,
       price,
+      offerPrice,
+      offerText,
+      description,
+      returnDescription,
       sizes,
       image,
+      images,
     } = req.body;
 
     if (!name || !collection || !price || !image) {
@@ -462,8 +393,13 @@ app.post("/api/products", async (req, res) => {
       category: category || "Chaniya Choli",
       collection,
       price,
+      offerPrice: offerPrice || null,
+      offerText: offerText || "",
+      description: description || "",
+      returnDescription: returnDescription || "",
       sizes: sizes || [],
       image,
+      images: images || [],
     });
 
     const savedProduct = await newProduct.save();
@@ -490,90 +426,59 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-// ===============================
-// UPDATE PRODUCT
-// ===============================
+// UPDATE PRODUCT GALLERY (admin only)
+app.put(
+  "/api/products/:id/gallery",
+  verifyAdminToken,
+  async (req, res) => {
+    try {
+      const { images } = req.body;
 
-app.put("/api/products/:id", async (req, res) => {
-  try {
-    const { name, collection, price, sizes, image } = req.body;
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      {
-        name,
-        collection,
-        price,
-        sizes,
-        image,
-      },
-      {
-        new: true,
-        runValidators: true,
+      if (!Array.isArray(images)) {
+        return res.status(400).json({
+          success: false,
+          message: "Images must be an array.",
+        });
       }
-    );
 
-    if (!updatedProduct) {
-      return res.status(404).json({
+      const updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        {
+          images,
+          image: images[0] || "",
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!updatedProduct) {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Product gallery updated successfully!",
+        product: updatedProduct,
+      });
+    } catch (error) {
+      console.error("Gallery update error:");
+      console.error(error.message);
+
+      res.status(500).json({
         success: false,
-        message: "Product not found.",
+        message: "Unable to update product gallery.",
       });
     }
-
-    res.json({
-      success: true,
-      message: "Product updated successfully!",
-      product: updatedProduct,
-    });
-  } catch (error) {
-    console.error("Update product error:");
-    console.error(error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to update product.",
-    });
   }
-});
+);
 
-
-// ===============================
-// DELETE PRODUCT
-// ===============================
-
-app.delete("/api/products/:id", async (req, res) => {
-  try {
-    const deletedProduct = await Product.findByIdAndDelete(
-      req.params.id
-    );
-
-    if (!deletedProduct) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found.",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Product deleted successfully!",
-    });
-  } catch (error) {
-    console.error("Delete product error:");
-    console.error(error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to delete product.",
-    });
-  }
-});
-
-// ===============================
-// UPDATE PRODUCT
-// ===============================
-
-app.put("/api/products/:id", async (req, res) => {
+// UPDATE PRODUCT (admin only)
+app.put("/api/products/:id", verifyAdminToken, async (req, res) => {
   console.log("UPDATE PRODUCT REQUEST RECEIVED");
 
   try {
@@ -582,8 +487,13 @@ app.put("/api/products/:id", async (req, res) => {
       category,
       collection,
       price,
+      offerPrice,
+      offerText,
+      description,
+      returnDescription,
       sizes,
       image,
+      images,
     } = req.body;
 
     const updateData = {
@@ -591,8 +501,27 @@ app.put("/api/products/:id", async (req, res) => {
       category: category || "Chaniya Choli",
       collection,
       price,
-      sizes: sizes || [],
+      offerPrice: offerPrice !== undefined ? (offerPrice || null) : undefined,
+      offerText: offerText !== undefined ? offerText : undefined,
+      description: description !== undefined ? description : undefined,
+      returnDescription: returnDescription !== undefined ? returnDescription : undefined,
     };
+
+    if (sizes !== undefined) {
+      updateData.sizes = sizes;
+    }
+
+    if (Array.isArray(images)) {
+      updateData.images = images;
+      if (images.length > 0 && !image) {
+        updateData.image = images[0];
+      }
+    }
+
+    // Remove undefined keys so we don't accidentally unset fields
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key]
+    );
 
     // Only update image if a real image URL was provided
     if (image) {
@@ -627,6 +556,37 @@ app.put("/api/products/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to update product.",
+    });
+  }
+});
+
+// DELETE PRODUCT (admin only)
+app.delete("/api/products/:id", verifyAdminToken, async (req, res) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(
+      req.params.id
+    );
+
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    console.log("PRODUCT DELETED:", deletedProduct.name);
+
+    res.json({
+      success: true,
+      message: "Product deleted successfully!",
+    });
+  } catch (error) {
+    console.error("Delete product error:");
+    console.error(error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to delete product.",
     });
   }
 });
@@ -730,9 +690,9 @@ app.post("/api/users/login", async (req, res) => {
 
     console.log("Looking for user:", normalizedEmail);
 
-const user = await User.findOne({
-  email: normalizedEmail,
-});
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
 
     console.log("User found:", user);
 
@@ -808,17 +768,16 @@ app.post("/api/payment/create-order", async (req, res) => {
     };
 
     console.log("RAZORPAY KEY LOADED:", !!process.env.RAZORPAY_KEY_ID);
-console.log(
-  "RAZORPAY KEY PREFIX:",
-  process.env.RAZORPAY_KEY_ID
-    ? process.env.RAZORPAY_KEY_ID.substring(0, 12)
-    : "MISSING"
-);
-console.log(
-  "RAZORPAY SECRET LOADED:",
-  !!process.env.RAZORPAY_KEY_SECRET
-);
-
+    console.log(
+      "RAZORPAY KEY PREFIX:",
+      process.env.RAZORPAY_KEY_ID
+        ? process.env.RAZORPAY_KEY_ID.substring(0, 12)
+        : "MISSING"
+    );
+    console.log(
+      "RAZORPAY SECRET LOADED:",
+      !!process.env.RAZORPAY_KEY_SECRET
+    );
 
     const order = await razorpay.orders.create(options);
 
@@ -828,9 +787,9 @@ console.log(
       keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-  console.error("Razorpay create order error:");
-  console.error(error);
-  console.error("Razorpay error details:", JSON.stringify(error, null, 2));
+    console.error("Razorpay create order error:");
+    console.error(error);
+    console.error("Razorpay error details:", JSON.stringify(error, null, 2));
 
     res.status(500).json({
       success: false,
@@ -838,10 +797,6 @@ console.log(
     });
   }
 });
-
-
-
-
 
 
 // ===============================
@@ -983,7 +938,7 @@ app.post("/api/orders", async (req, res) => {
 // GET ALL ORDERS
 // ===============================
 
-app.get("/api/orders", async (req, res) => {
+app.get("/api/orders", verifyAdminToken, async (req, res) => {
   console.log("GET ORDERS REQUEST RECEIVED");
 
   try {
@@ -1032,6 +987,7 @@ app.get("/api/orders/user/:email", async (req, res) => {
     });
   }
 });
+
 // ===============================
 // START SERVER
 // ===============================
@@ -1041,4 +997,4 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("MAMTA DESIGN CO. BACKEND");
   console.log("=================================");
   console.log(`Server running on http://localhost:${PORT}`);
-})
+});

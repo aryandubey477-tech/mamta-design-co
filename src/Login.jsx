@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState("login");
 
   const [form, setForm] = useState({
@@ -193,6 +195,17 @@ function Login() {
               required
             />
           </div>
+
+          {mode === "login" && (
+            <div className="login-forgot">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="login-error">
