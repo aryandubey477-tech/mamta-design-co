@@ -108,6 +108,10 @@ function ProductDetail({ productId, addToCart, setCartOpen, cartCount = 0 }) {
   // ─── Add to Bag ───
   const handleAddToBag = () => {
     if (!product) return;
+    if (product.isSold) {
+      alert("This exclusive one-of-one piece has already been acquired and is no longer available.");
+      return;
+    }
 
     const priceToUse = hasOffer
       ? Number(product.offerPrice)
@@ -309,18 +313,41 @@ function ProductDetail({ productId, addToCart, setCartOpen, cartCount = 0 }) {
 
             {/* Add to Bag CTA */}
             <div style={styles.ctaWrapper}>
-              <button
-                type="button"
-                style={styles.addToBagBtn}
-                onClick={handleAddToBag}
-              >
-                ADD TO BAG
-              </button>
-
-              {addedMsg && (
-                <div style={styles.addedToast}>
-                  {addedMsg}
+              {product.isSold ? (
+                <div style={{ textAlign: "center", width: "100%" }}>
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.addToBagBtn,
+                      background: "#5a433b",
+                      borderColor: "#5a433b",
+                      cursor: "not-allowed",
+                      opacity: 0.85,
+                    }}
+                    disabled
+                  >
+                    SOLD OUT · ARCHIVE PIECE
+                  </button>
+                  <p style={{ marginTop: "12px", fontSize: "12px", color: "#8b7568", fontStyle: "italic" }}>
+                    ✦ This exclusive one-of-one handcrafted piece has been acquired and is no longer available.
+                  </p>
                 </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    style={styles.addToBagBtn}
+                    onClick={handleAddToBag}
+                  >
+                    ADD TO BAG
+                  </button>
+
+                  {addedMsg && (
+                    <div style={styles.addedToast}>
+                      {addedMsg}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

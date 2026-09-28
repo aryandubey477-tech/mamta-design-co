@@ -56,8 +56,44 @@ const verifyAdminToken = (req, res, next) => {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// ===============================
+// CORS CONFIGURATION
+// ===============================
+const allowedOrigins = [
+  "https://mamtadesignco.com",
+  "https://www.mamtadesignco.com",
+];
+
+if (process.env.FRONTEND_URL) {
+  try {
+    const parsed = new URL(process.env.FRONTEND_URL).origin;
+    if (!allowedOrigins.includes(parsed)) allowedOrigins.push(parsed);
+  } catch (e) {}
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const isLocal =
+      origin.startsWith("http://localhost:") ||
+      origin.startsWith("http://127.0.0.1:") ||
+      origin.startsWith("http://192.168.") ||
+      origin.startsWith("http://10.") ||
+      origin.startsWith("http://172.");
+
+    if (isLocal || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -69,15 +105,49 @@ app.use((req, res, next) => {
 // MONGODB CONNECTION
 // ===============================
 
+mongoose.connection.on("connected", () => {
+  console.log("MongoDB connected successfully!");
+});
+
+mongoose.connection.on("error", (err) => {
+  console.error("MongoDB runtime error:", err.message);
+});
+
+mongoose.connection.on("disconnected", () => {
+  console.warn("MongoDB disconnected.");
+});
+
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected successfully!");
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
   })
   .catch((error) => {
-    console.error("MongoDB connection failed:");
+    console.error("MongoDB initial connection failed:");
     console.error(error.message);
   });
+
+// Database availability middleware for API routes
+const checkDbConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: "Database service temporarily unavailable. Please try again shortly.",
+      databaseConnected: false,
+    });
+  }
+  next();
+};
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const states = ["disconnected", "connected", "connecting", "disconnecting"];
+  res.json({
+    status: dbState === 1 ? "healthy" : "degraded",
+    database: states[dbState] || "unknown",
+    uptime: Math.round(process.uptime()),
+  });
+});
 
 // ===============================
 // ORDER SCHEMA
@@ -234,6 +304,18 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+
+    // One-of-one inventory status
+    isSold: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    soldAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -263,10 +345,6 @@ app.post("/api/admin/login", (req, res) => {
 
     const passwordMatch =
       password === process.env.ADMIN_PASSWORD;
-
-    console.log("ADMIN EMAIL MATCH:", emailMatch);
-    console.log("ADMIN PASSWORD MATCH:", passwordMatch);
-
     if (!emailMatch || !passwordMatch) {
       return res.status(401).json({
         success: false,
@@ -307,7 +385,7 @@ app.post("/api/admin/login", (req, res) => {
 // ===============================
 
 // GET ALL PRODUCTS
-app.get("/api/products", async (req, res) => {
+app.get("/api/products", checkDbConnection, async (req, res) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
 
@@ -316,13 +394,45 @@ app.get("/api/products", async (req, res) => {
       products,
     });
   } catch (error) {
-    console.error("Get products error:");
-    console.error(error.message);
-
+    console.error("Get products error:", error.message);
     res.status(500).json({
       success: false,
       message: "Unable to fetch products.",
     });
+  }
+});
+
+// TOGGLE PRODUCT AVAILABILITY / SOLD STATUS (admin only)
+app.patch("/api/products/:id/status", verifyAdminToken, checkDbConnection, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isSold } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ success: false, message: "Product not found." });
+    }
+
+    const updated = await Product.findByIdAndUpdate(
+      id,
+      {
+        isSold: Boolean(isSold),
+        soldAt: isSold ? new Date() : null,
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Product not found." });
+    }
+
+    res.json({
+      success: true,
+      message: `Product marked as ${updated.isSold ? "sold" : "available"}.`,
+      product: updated,
+    });
+  } catch (error) {
+    console.error("Update product status error:", error.message);
+    res.status(500).json({ success: false, message: "Unable to update product status." });
   }
 });
 
@@ -747,37 +857,98 @@ app.post("/api/users/login", async (req, res) => {
 
 
 // ===============================
-// RAZORPAY CREATE ORDER
+// HELPER: VALIDATE CART & CALCULATE SERVER TOTAL
 // ===============================
 
-app.post("/api/payment/create-order", async (req, res) => {
-  try {
-    const { amount } = req.body;
+async function validateCartAndCalculateTotal(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: "Your bag is empty." };
+  }
 
-    if (!amount || Number(amount) <= 0) {
+  let calculatedTotal = 0;
+  const validatedItems = [];
+  const productIds = [];
+
+  for (const item of items) {
+    const rawId = item.id || item._id;
+    if (!rawId || !mongoose.Types.ObjectId.isValid(rawId)) {
+      return { error: `Invalid product identification for item.` };
+    }
+
+    const product = await Product.findById(rawId);
+    if (!product) {
+      return { error: `A product in your bag could not be found in our collection.` };
+    }
+
+    if (product.isSold) {
+      return {
+        error: `"${product.name}" has already been acquired by another client and is no longer available.`,
+        soldProduct: product.name,
+      };
+    }
+
+    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+
+    // Calculate effective price: prefer offerPrice if valid and lower than regular price
+    const hasOffer =
+      product.offerPrice !== null &&
+      product.offerPrice !== undefined &&
+      Number(product.offerPrice) > 0 &&
+      Number(product.offerPrice) < Number(product.price);
+
+    const unitPrice = hasOffer ? Number(product.offerPrice) : Number(product.price);
+    calculatedTotal += unitPrice * qty;
+
+    validatedItems.push({
+      id: product._id,
+      name: product.name,
+      price: unitPrice,
+      quantity: qty,
+      selectedSize: item.selectedSize || "Free Size",
+      category: product.category,
+    });
+
+    productIds.push(product._id);
+  }
+
+  if (calculatedTotal <= 0) {
+    return { error: "Calculated order total must be greater than zero." };
+  }
+
+  return {
+    total: calculatedTotal,
+    items: validatedItems,
+    productIds,
+  };
+}
+
+// ===============================
+// RAZORPAY CREATE ORDER (Server-Verified Price)
+// ===============================
+
+app.post("/api/payment/create-order", checkDbConnection, async (req, res) => {
+  try {
+    const { items, customer } = req.body;
+
+    const validation = await validateCartAndCalculateTotal(items);
+    if (validation.error) {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment amount.",
+        message: validation.error,
       });
     }
 
+    const { total, items: validatedItems } = validation;
+
     const options = {
-      amount: Math.round(Number(amount) * 100),
+      amount: Math.round(total * 100),
       currency: "INR",
       receipt: `mamta_${Date.now()}`,
+      notes: {
+        customer_email: customer?.email || "",
+        items_count: String(validatedItems.length),
+      },
     };
-
-    console.log("RAZORPAY KEY LOADED:", !!process.env.RAZORPAY_KEY_ID);
-    console.log(
-      "RAZORPAY KEY PREFIX:",
-      process.env.RAZORPAY_KEY_ID
-        ? process.env.RAZORPAY_KEY_ID.substring(0, 12)
-        : "MISSING"
-    );
-    console.log(
-      "RAZORPAY SECRET LOADED:",
-      !!process.env.RAZORPAY_KEY_SECRET
-    );
 
     const order = await razorpay.orders.create(options);
 
@@ -785,25 +956,23 @@ app.post("/api/payment/create-order", async (req, res) => {
       success: true,
       order,
       keyId: process.env.RAZORPAY_KEY_ID,
+      verifiedTotal: total,
     });
   } catch (error) {
-    console.error("Razorpay create order error:");
-    console.error(error);
-    console.error("Razorpay error details:", JSON.stringify(error, null, 2));
-
+    console.error("Razorpay create order error:", error.message);
     res.status(500).json({
       success: false,
-      message: "Unable to create Razorpay order.",
+      message: "Unable to initialize payment order. Please try again.",
     });
   }
 });
 
 
 // ===============================
-// RAZORPAY VERIFY PAYMENT
+// RAZORPAY VERIFY PAYMENT (Atomic Inventory Update & Idempotency)
 // ===============================
 
-app.post("/api/payment/verify", async (req, res) => {
+app.post("/api/payment/verify", checkDbConnection, async (req, res) => {
   try {
     const {
       razorpay_order_id,
@@ -811,7 +980,6 @@ app.post("/api/payment/verify", async (req, res) => {
       razorpay_signature,
       customer,
       items,
-      total,
     } = req.body;
 
     if (
@@ -821,18 +989,24 @@ app.post("/api/payment/verify", async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Missing Razorpay payment details.",
+        message: "Missing Razorpay payment verification details.",
       });
     }
 
-    const body =
-      razorpay_order_id + "|" + razorpay_payment_id;
+    // 1. Check for duplicate/replayed verification requests
+    const existingOrder = await Order.findOne({ razorpayPaymentId: razorpay_payment_id });
+    if (existingOrder) {
+      return res.json({
+        success: true,
+        message: "Order already verified and processed.",
+        orderId: existingOrder._id,
+      });
+    }
 
+    // 2. Cryptographic signature check
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env.RAZORPAY_KEY_SECRET
-      )
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body)
       .digest("hex");
 
@@ -841,25 +1015,37 @@ app.post("/api/payment/verify", async (req, res) => {
 
     const signatureValid =
       expectedBuffer.length === receivedBuffer.length &&
-      crypto.timingSafeEqual(
-        expectedBuffer,
-        receivedBuffer
-      );
+      crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 
     if (!signatureValid) {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment signature.",
+        message: "Payment signature verification failed.",
       });
     }
 
+    // 3. Re-verify products and calculate verified total from MongoDB
+    const validation = await validateCartAndCalculateTotal(items);
+    const validatedItems = validation.items || items;
+    const finalTotal = validation.total || req.body.total;
+    const productIds = validation.productIds || items.map(i => i.id || i._id).filter(Boolean);
+
+    // 4. Atomically mark products as sold
+    if (productIds.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: productIds } },
+        { $set: { isSold: true, soldAt: new Date() } }
+      );
+    }
+
+    // 5. Save Order with verified data
     const newOrder = new Order({
       customer: {
         ...customer,
         payment: "online",
       },
-      items,
-      total,
+      items: validatedItems,
+      total: finalTotal,
       payment: "online",
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
@@ -869,12 +1055,10 @@ app.post("/api/payment/verify", async (req, res) => {
     const savedOrder = await newOrder.save();
 
     console.log("=================================");
-    console.log("RAZORPAY PAYMENT VERIFIED");
-    console.log("=================================");
+    console.log("RAZORPAY PAYMENT VERIFIED & ORDER SAVED");
     console.log("Order ID:", savedOrder._id);
-    console.log("Razorpay Order:", razorpay_order_id);
-    console.log("Razorpay Payment:", razorpay_payment_id);
-    console.log("Total:", total);
+    console.log("Total:", finalTotal);
+    console.log("=================================");
 
     res.json({
       success: true,
@@ -882,9 +1066,7 @@ app.post("/api/payment/verify", async (req, res) => {
       orderId: savedOrder._id,
     });
   } catch (error) {
-    console.error("Razorpay verification error:");
-    console.error(error.message);
-
+    console.error("Razorpay verification error:", error.message);
     res.status(500).json({
       success: false,
       message: "Unable to verify payment.",
@@ -893,30 +1075,60 @@ app.post("/api/payment/verify", async (req, res) => {
 });
 
 // ===============================
-// CREATE ORDER
+// CREATE COD ORDER (Server-Verified Price & Inventory Lock)
 // ===============================
 
-app.post("/api/orders", async (req, res) => {
+app.post("/api/orders", checkDbConnection, async (req, res) => {
   console.log("ORDER REQUEST RECEIVED");
 
   try {
-    const { customer, items, total, payment } = req.body;
+    const { customer, items } = req.body;
+
+    if (!customer || !customer.name || !customer.phone || !customer.address) {
+      return res.status(400).json({
+        success: false,
+        message: "Please complete all required customer details.",
+      });
+    }
+
+    // Verify products and calculate total from MongoDB
+    const validation = await validateCartAndCalculateTotal(items);
+    if (validation.error) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error,
+      });
+    }
+
+    const { total, items: validatedItems, productIds } = validation;
+
+    // Atomically mark one-of-one products as sold
+    if (productIds.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: productIds } },
+        { $set: { isSold: true, soldAt: new Date() } }
+      );
+    }
 
     const newOrder = new Order({
-      customer,
-      items,
+      customer: {
+        ...customer,
+        payment: "cod",
+      },
+      items: validatedItems,
       total,
-      payment,
+      payment: "cod",
+      paymentStatus: "pending",
     });
 
     const savedOrder = await newOrder.save();
 
     console.log("=================================");
-    console.log("NEW ORDER SAVED");
-    console.log("=================================");
+    console.log("NEW COD ORDER SAVED");
     console.log("Order ID:", savedOrder._id);
     console.log("Customer:", savedOrder.customer.name);
     console.log("Total:", savedOrder.total);
+    console.log("=================================");
 
     res.status(201).json({
       success: true,
@@ -924,12 +1136,10 @@ app.post("/api/orders", async (req, res) => {
       orderId: savedOrder._id,
     });
   } catch (error) {
-    console.error("Order save error:");
-    console.error(error.message);
-
+    console.error("Order save error:", error.message);
     res.status(500).json({
       success: false,
-      message: "Unable to save order.",
+      message: "Unable to save order. Please try again.",
     });
   }
 });
@@ -963,11 +1173,17 @@ app.get("/api/orders", verifyAdminToken, async (req, res) => {
 // GET ORDERS FOR ONE CUSTOMER
 // ===============================
 
-app.get("/api/orders/user/:email", async (req, res) => {
-  console.log("GET CUSTOMER ORDERS REQUEST RECEIVED");
-
+app.get("/api/orders/user/:email", checkDbConnection, async (req, res) => {
   try {
-    const email = req.params.email.toLowerCase();
+    const rawEmail = req.params.email;
+    if (!rawEmail || typeof rawEmail !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email parameter.",
+      });
+    }
+
+    const email = rawEmail.trim().toLowerCase();
 
     const orders = await Order.find({
       "customer.email": email,
@@ -978,9 +1194,7 @@ app.get("/api/orders/user/:email", async (req, res) => {
       orders,
     });
   } catch (error) {
-    console.error("Get customer orders error:");
-    console.error(error.message);
-
+    console.error("Get customer orders error:", error.message);
     res.status(500).json({
       success: false,
       message: "Unable to fetch customer orders.",

@@ -57,10 +57,12 @@ function Checkout({
 
     setProcessing(true);
 
+    const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
     try {
       if (customer.payment === "cod") {
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/orders`,
+          `${apiUrl}/api/orders`,
           {
             method: "POST",
             headers: {
@@ -68,9 +70,12 @@ function Checkout({
             },
             body: JSON.stringify({
               customer,
-              items: cart,
-              total: cartTotal,
-              payment: "cod",
+              items: cart.map((item) => ({
+                id: item._id || item.id,
+                name: item.name,
+                quantity: item.quantity || 1,
+                selectedSize: item.selectedSize || "Free Size",
+              })),
             }),
           }
         );
@@ -78,7 +83,7 @@ function Checkout({
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Order failed");
+          throw new Error(data.message || "Order placement failed.");
         }
 
         saveOrderAndContinue({
@@ -89,6 +94,7 @@ function Checkout({
           items: cart,
           total: cartTotal,
           payment: "cod",
+          orderId: data.orderId,
         });
         return;
       }
@@ -97,36 +103,38 @@ function Checkout({
 
       if (!scriptLoaded) {
         throw new Error(
-          "Unable to load Razorpay Checkout. Please try again."
+          "Unable to load Razorpay Checkout. Please check your network and try again."
         );
       }
 
-      
-
       const orderResponse = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
+        `${apiUrl}/api/payment/create-order`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: cartTotal,
+            customer,
+            items: cart.map((item) => ({
+              id: item._id || item.id,
+              name: item.name,
+              quantity: item.quantity || 1,
+              selectedSize: item.selectedSize || "Free Size",
+            })),
           }),
         }
       );
 
       const orderData = await orderResponse.json();
 
-if (!orderResponse.ok || !orderData.success) {
-  throw new Error(
-    orderData.message || "Unable to create payment order."
-  );
-}
+      if (!orderResponse.ok || !orderData.success) {
+        throw new Error(
+          orderData.message || "Unable to initialize payment order."
+        );
+      }
 
       const razorpayOrder = orderData.order;
-
-
 
       const options = {
         key: orderData.keyId,
@@ -150,7 +158,7 @@ if (!orderResponse.ok || !orderData.success) {
         handler: async function (paymentResponse) {
           try {
             const verifyResponse = await fetch(
-              `${import.meta.env.VITE_API_URL}/api/payment/verify`,
+              `${apiUrl}/api/payment/verify`,
               {
                 method: "POST",
                 headers: {
@@ -161,8 +169,12 @@ if (!orderResponse.ok || !orderData.success) {
                   razorpay_payment_id: paymentResponse.razorpay_payment_id,
                   razorpay_signature: paymentResponse.razorpay_signature,
                   customer,
-                  items: cart,
-                  total: cartTotal,
+                  items: cart.map((item) => ({
+                    id: item._id || item.id,
+                    name: item.name,
+                    quantity: item.quantity || 1,
+                    selectedSize: item.selectedSize || "Free Size",
+                  })),
                 }),
               }
             );
@@ -181,10 +193,11 @@ if (!orderResponse.ok || !orderData.success) {
                 payment: "online",
               },
               items: cart,
-              total: cartTotal,
+              total: orderData.verifiedTotal || cartTotal,
               payment: "online",
               razorpayOrderId: paymentResponse.razorpay_order_id,
               razorpayPaymentId: paymentResponse.razorpay_payment_id,
+              orderId: verifyData.orderId,
             });
           } catch (error) {
             console.error("Payment verification error:", error);

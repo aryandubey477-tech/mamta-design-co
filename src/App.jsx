@@ -32,23 +32,64 @@ const navigate = useNavigate();
 const location = useLocation();
 
 const [products, setProducts] = useState(fallbackProducts);  
+const [productsLoading, setProductsLoading] = useState(true);
+const [productsError, setProductsError] = useState("");
 const [activeCategory, setActiveCategory] = useState("All");
 
-useEffect(() => {
-  fetch(`${import.meta.env.VITE_API_URL}/api/products`)
-    .then((response) => response.json())
+const loadProducts = () => {
+  setProductsLoading(true);
+  setProductsError("");
+  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+  fetch(`${apiUrl}/api/products`)
+    .then(async (response) => {
+      const contentType = response.headers.get("content-type");
+      if (!response.ok) {
+        if (contentType && contentType.includes("application/json")) {
+          const errData = await response.json();
+          throw new Error(errData.message || `Server error (${response.status})`);
+        }
+        throw new Error(`Unable to fetch collection (Status ${response.status})`);
+      }
+      return response.json();
+    })
     .then((data) => {
-      if (data.success) {
+      if (data.success && Array.isArray(data.products)) {
         setProducts(data.products);
+      } else {
+        throw new Error(data.message || "Failed to load products.");
       }
     })
     .catch((error) => {
       console.error("Failed to load products:", error);
+      setProductsError(
+        "Our studio pieces are temporarily unavailable. Please check back shortly or try again."
+      );
+    })
+    .finally(() => {
+      setProductsLoading(false);
     });
+};
+
+useEffect(() => {
+  loadProducts();
 }, []);
 
   const [showAllProducts, setShowAllProducts] = useState(false);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem("mamtaCart");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("mamtaCart", JSON.stringify(cart));
+    } catch (e) {}
+  }, [cart]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -110,6 +151,10 @@ useEffect(() => {
   };
 
   const addToCart = (product, addQty = 1) => {
+    if (product.isSold) {
+      alert("This exclusive one-of-one piece has already been acquired and is no longer available.");
+      return;
+    }
     const prodId = product._id || product.id;
     const qtyToAdd = addQty || product.quantity || 1;
 
@@ -386,28 +431,6 @@ return (
 </section>
 
 
-        {/* INTRO */}
-
-        <section className="intro">
-
-          <p className="section-label">
-            MAMTA DESIGN CO.
-          </p>
-
-          <h2>
-            Tradition,
-            <br />
-            Reimagined.
-          </h2>
-
-          <p className="intro-text">
-            A celebration of Gujarati craftsmanship through
-            contemporary silhouettes and intricate details made for the moments that matter.
-          </p>
-
-        </section>
-
-
         {/* COLLECTIONS */}
 
 <section className="collections" id="collections">
@@ -551,85 +574,115 @@ return (
           </div>
 
 
-          <div className="product-grid">
-{(showAllProducts
-  ? filteredProducts
-  : filteredProducts.slice(0, 4)
-).map((product) => {
-  const hasOffer =
-    product.offerPrice !== null &&
-    product.offerPrice !== undefined &&
-    product.offerPrice !== "" &&
-    Number(product.offerPrice) > 0 &&
-    Number(product.offerPrice) < Number(product.price);
+          {productsLoading ? (
+            <div className="shop-status-message">
+              <div className="status-spinner"></div>
+              <p>CURATING CHANIYA CHOLI COLLECTION...</p>
+            </div>
+          ) : productsError ? (
+            <div className="shop-status-message shop-status-error">
+              <p className="status-title">Collection Temporarily Unavailable</p>
+              <p className="status-desc">{productsError}</p>
+              <button
+                type="button"
+                className="dark-button"
+                onClick={loadProducts}
+              >
+                RETRY LOADING →
+              </button>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="shop-status-message">
+              <p className="status-title">No pieces found</p>
+              <p className="status-desc">
+                There are currently no available pieces in the &quot;{activeCategory}&quot; edit.
+              </p>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {(showAllProducts
+                ? filteredProducts
+                : filteredProducts.slice(0, 4)
+              ).map((product) => {
+                const hasOffer =
+                  product.offerPrice !== null &&
+                  product.offerPrice !== undefined &&
+                  product.offerPrice !== "" &&
+                  Number(product.offerPrice) > 0 &&
+                  Number(product.offerPrice) < Number(product.price);
 
-  return (
+                return (
+                  <article
+                    className="product-card"
+                    key={product._id}
+                    onClick={() => navigate(`/product/${product._id}`)}
+                  >
+                    <div className="product-image">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                      />
 
+                      {product.isSold && (
+                        <div className="sold-out-badge">
+                          SOLD OUT
+                        </div>
+                      )}
 
-             <article
-  className="product-card"
-  key={product._id}
-  onClick={() => navigate(`/product/${product._id}`)}
->
+                      {product.isSold ? (
+                        <button
+                          type="button"
+                          className="quick-add quick-add-disabled"
+                          disabled
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          SOLD OUT
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="quick-add"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToCart({
+                              ...product,
+                              price: hasOffer
+                                ? Number(product.offerPrice)
+                                : Number(product.price),
+                            });
+                          }}
+                        >
+                          ADD TO BAG
+                        </button>
+                      )}
+                    </div>
 
-                <div className="product-image">
+                    <div className="product-info">
+                      <div>
+                        <p className="product-category">
+                          {product.category}
+                        </p>
+                        <h3>{product.name}</h3>
+                      </div>
 
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                  />
-
-                  <button
-  className="quick-add"
-  onClick={(event) => {
-    event.stopPropagation();
-    
-    addToCart({
-      ...product,
-      price: hasOffer ? Number(product.offerPrice) : Number(product.price),
-    });
-  }}
->
-  ADD TO BAG
-</button>
-
-                </div>
-
-                <div className="product-info">
-
-                  <div>
-
-                    <p className="product-category">
-                      {product.category}
-                    </p>
-
-                    <h3>
-                      {product.name}
-                    </h3>
-
-                  </div>
-
-                 <strong>
-  {hasOffer ? (
-  <>
-    {formatPrice(product.offerPrice)}
-    <del style={{ marginLeft: "8px", opacity: 0.55 }}>
-      {formatPrice(product.price)}
-    </del>
-  </>
-) : (
-  formatPrice(product.price)
-)}
-</strong>
-
-                </div>
-
-              </article>
-
-            );
-})}
-
-         </div>
+                      <strong>
+                        {hasOffer ? (
+                          <>
+                            {formatPrice(product.offerPrice)}
+                            <del style={{ marginLeft: "8px", opacity: 0.55 }}>
+                              {formatPrice(product.price)}
+                            </del>
+                          </>
+                        ) : (
+                          formatPrice(product.price)
+                        )}
+                      </strong>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
 {!showAllProducts && filteredProducts.length > 4 && (
   <div className="shop-view-all">
