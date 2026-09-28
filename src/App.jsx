@@ -555,7 +555,15 @@ return (
 {(showAllProducts
   ? filteredProducts
   : filteredProducts.slice(0, 4)
-).map((product) => (
+).map((product) => {
+  const hasOffer =
+    product.offerPrice !== null &&
+    product.offerPrice !== undefined &&
+    product.offerPrice !== "" &&
+    Number(product.offerPrice) > 0 &&
+    Number(product.offerPrice) < Number(product.price);
+
+  return (
 
 
              <article
@@ -575,12 +583,7 @@ return (
   className="quick-add"
   onClick={(event) => {
     event.stopPropagation();
-    const hasOffer =
-      product.offerPrice !== null &&
-      product.offerPrice !== undefined &&
-      product.offerPrice !== "" &&
-      Number(product.offerPrice) > 0 &&
-      Number(product.offerPrice) < Number(product.price);
+    
     addToCart({
       ...product,
       price: hasOffer ? Number(product.offerPrice) : Number(product.price),
@@ -606,15 +609,25 @@ return (
 
                   </div>
 
-                  <strong>
-                    {formatPrice(product.price)}
-                  </strong>
+                 <strong>
+  {hasOffer ? (
+  <>
+    {formatPrice(product.offerPrice)}
+    <del style={{ marginLeft: "8px", opacity: 0.55 }}>
+      {formatPrice(product.price)}
+    </del>
+  </>
+) : (
+  formatPrice(product.price)
+)}
+</strong>
 
                 </div>
 
               </article>
 
-            ))}
+            );
+})}
 
          </div>
 
